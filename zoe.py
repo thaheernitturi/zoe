@@ -10,6 +10,8 @@ import traceback
 import matplotlib.pyplot as plt
 import numpy as np
 from io import BytesIO
+from openai import OpenAI
+import streamlit as st
 
 # --- Configuration ---
 openai.api_key = "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"
@@ -38,13 +40,13 @@ PROMPTS = {
 }
 
 # --- GPT Query ---
-client = OpenAI()
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 def query_gpt(prompt):
     response = client.chat.completions.create(
         model="gpt-4-turbo",
         messages=[
-            {"role": "system", "content": "You are Zoe, a kind and helpful AI tutor who explains clearly and adapts to student level."},
+            {"role": "system", "content": "You are Zoe, a kind and helpful AI tutor."},
             {"role": "user", "content": prompt}
         ]
     )
