@@ -9,7 +9,7 @@ client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 # Function to call GPT
 def query_gpt(prompt):
     response = client.chat.completions.create(
-        model="gpt-4-turbo",
+        model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "You are Zoe, an intelligent and friendly AI tutor. You explain concepts in clear, simple terms with examples."},
             {"role": "user", "content": prompt}
