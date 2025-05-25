@@ -12,7 +12,7 @@ import numpy as np
 from io import BytesIO
 
 # --- Configuration ---
-openai.api_key = "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"
+openai.api_key = "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"
 USER_ID = "default_user"
 MEMORY_FILE = f"zoe_memory_{USER_ID}.json"
 EXPECTED_OUTPUT = [3.1, 4.2, 5.3]
