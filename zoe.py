@@ -7,15 +7,24 @@ import numpy as np
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # Function to call GPT
-def query_gpt(prompt):
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": "You are Zoe, an intelligent and friendly AI tutor. You explain concepts in clear, simple terms with examples."},
-            {"role": "user", "content": prompt}
-        ]
-    )
-    return response.choices[0].message.content
+
+import time
+import openai
+from openai import RateLimitError
+
+def query_gpt(user_question, max_retries=5):
+    for retry in range(max_retries):
+        try:
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": user_question}],
+            )
+            return response
+        except RateLimitError:
+            wait_time = 2 ** retry  # exponential backoff: 1s, 2s, 4s, ...
+            print(f"[Retry {retry + 1}] Rate limit hit. Retrying in {wait_time} seconds...")
+            time.sleep(wait_time)
+    raise Exception("Max retries exceeded due to repeated rate limit errors.")
 
 # Function to visualize linear regression
 def show_linear_regression_plot():
