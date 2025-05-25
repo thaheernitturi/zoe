@@ -62,3 +62,10 @@ if user_question:
     # Show visual aid for certain topics
     if "linear regression" in user_question.lower():
         show_linear_regression_plot()
+import streamlit as st
+
+try:
+    response = query_gpt(user_question)
+    st.write(response.choices[0].message.content)
+except openai.RateLimitError:
+    st.warning("Rate limit exceeded. Please wait a moment and try again.")
