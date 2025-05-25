@@ -38,15 +38,18 @@ PROMPTS = {
 }
 
 # --- GPT Query ---
+client = OpenAI()
+
 def query_gpt(prompt):
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model="gpt-4-turbo",
         messages=[
             {"role": "system", "content": "You are Zoe, a kind and helpful AI tutor who explains clearly and adapts to student level."},
             {"role": "user", "content": prompt}
         ]
     )
-    return response["choices"][0]["message"]["content"]
+    return response.choices[0].message.content
+
 
 # --- Code Auto-Evaluation ---
 def run_user_code(user_code):
