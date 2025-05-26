@@ -6,25 +6,36 @@ import numpy as np
 # Load OpenAI API key from Streamlit secrets
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-# Function to call GPT
-
 import time
-import openai
-from openai import RateLimitError
+from openai import RateLimitError, APIError, Timeout
 
-def query_gpt(user_question, max_retries=5):
-    for retry in range(max_retries):
+def query_gpt(prompt):
+    max_retries = 5
+    delay = 5  # Start with 5 seconds
+
+    for attempt in range(max_retries):
         try:
             response = client.chat.completions.create(
                 model="gpt-3.5-turbo",
-                messages=[{"role": "user", "content": user_question}],
+                messages=[
+                    {"role": "system", "content": "You are Zoe, an AI tutor who explains clearly with examples."},
+                    {"role": "user", "content": prompt}
+                ]
             )
-            return response
+            return response.choices[0].message.content
+
         except RateLimitError:
-            wait_time = 2 ** retry  # exponential backoff: 1s, 2s, 4s, ...
-            print(f"[Retry {retry + 1}] Rate limit hit. Retrying in {wait_time} seconds...")
-            time.sleep(wait_time)
-    raise Exception("Max retries exceeded due to repeated rate limit errors.")
+            st.warning(f"⚠️ Rate limit hit. Waiting {delay} seconds before retrying...")
+            time.sleep(delay)
+            delay *= 2  # Exponential backoff
+
+        except (APIError, Timeout) as e:
+            st.warning(f"Temporary OpenAI error: {str(e)} — Retrying in {delay} seconds...")
+            time.sleep(delay)
+            delay *= 2
+
+    return "❌ Sorry, Zoe hit the rate limit too many times. Please try again later."
+
 
 # Function to visualize linear regression
 def show_linear_regression_plot():
