@@ -1,91 +1,85 @@
 import streamlit as st
-from openai import OpenAI
-import matplotlib.pyplot as plt
-import numpy as np
-
-# Load OpenAI API key from Streamlit secrets
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-
 import time
-from openai import RateLimitError, APIError, Timeout
+from openai import OpenAI, RateLimitError, APIError, Timeout
 
-def query_gpt(prompt):
-    max_retries = 5
-    delay = 5  # Start with 5 seconds
+# Load API key safely
+OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY", "")
 
-    for attempt in range(max_retries):
-        try:
-            response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "You are Zoe, an AI tutor who explains clearly with examples."},
-                    {"role": "user", "content": prompt}
-                ]
-            )
-            return response.choices[0].message.content
+# Initialize OpenAI client
+client = OpenAI(api_key=OPENAI_API_KEY)
 
-        except RateLimitError:
-            st.warning(f"⚠️ Rate limit hit. Waiting {delay} seconds before retrying...")
-            time.sleep(delay)
-            delay *= 2  # Exponential backoff
-
-        except (APIError, Timeout) as e:
-            st.warning(f"Temporary OpenAI error: {str(e)} — Retrying in {delay} seconds...")
-            time.sleep(delay)
-            delay *= 2
-
-    return "❌ Sorry, Zoe hit the rate limit too many times. Please try again later."
+# Offline fallback content
+FALLBACK_ANSWERS = {
+    "linear regression": "Linear regression is a statistical method that models the relationship between a dependent variable and one or more independent variables using a straight line. It's often used to predict outcomes based on trends in data.",
+    "logistic regression": "Logistic regression is used when the dependent variable is categorical (like yes/no, 0/1). It estimates probabilities using a logistic (sigmoid) function and is widely used for binary classification.",
+    "overfitting": "Overfitting happens when a model learns noise in the training data instead of the actual pattern. It performs well on training data but poorly on unseen data.",
+    "underfitting": "Underfitting occurs when a model is too simple to learn the underlying structure of the data, resulting in poor performance on both training and test data.",
+    "precision recall": "Precision is the ratio of true positives to total predicted positives, while recall is the ratio of true positives to all actual positives. Precision is about exactness, and recall is about completeness."
+}
 
 
-# Function to visualize linear regression
-def show_linear_regression_plot():
-    st.subheader("📈 Linear Regression Visual Explanation")
+def find_fallback_answer(prompt):
+    prompt_lower = prompt.lower()
+    for topic, answer in FALLBACK_ANSWERS.items():
+        if topic in prompt_lower:
+            return answer
+    return "❌ Sorry, Zoe couldn't find an offline explanation for that topic."
 
-    # Generate sample data
-    np.random.seed(1)
-    X = 2 * np.random.rand(100, 1)
-    y = 4 + 3 * X + np.random.randn(100, 1)
 
-    # Fit a simple linear regression line
-    X_b = np.c_[np.ones((100, 1)), X]
-    theta_best = np.linalg.inv(X_b.T.dot(X_b)).dot(X_b.T.dot(y))
+def query_gpt_with_fallback(prompt):
+    models = ["gpt-4", "gpt-3.5-turbo"]
+    delay = 5
 
-    X_new = np.array([[0], [2]])
-    X_new_b = np.c_[np.ones((2, 1)), X_new]
-    y_predict = X_new_b.dot(theta_best)
+    for model in models:
+        for attempt in range(3):
+            try:
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": "You are Zoe, an AI tutor that explains concepts clearly with examples."},
+                        {"role": "user", "content": prompt}
+                    ]
+                )
+                return response.choices[0].message.content
+            except RateLimitError:
+                st.warning(f"⚠️ Rate limit hit for {model}. Retrying in {delay} seconds...")
+                time.sleep(delay)
+                delay *= 2
+            except (APIError, Timeout) as e:
+                st.warning(f"🔁 Temporary error with {model}: {e}. Retrying in {delay} seconds...")
+                time.sleep(delay)
+        st.info(f"⏭️ Switching to fallback model...")
 
-    fig, ax = plt.subplots()
-    ax.plot(X_new, y_predict, "r-", label="Prediction Line")
-    ax.scatter(X, y, alpha=0.6)
-    ax.set_xlabel("X")
-    ax.set_ylabel("y")
-    ax.set_title("Simple Linear Regression")
-    ax.legend()
+    # Offline fallback
+    return find_fallback_answer(prompt)
 
-    st.pyplot(fig)
 
-# Streamlit UI
-st.set_page_config(page_title="Zoe - Your AI Tutor", page_icon="🧠")
-st.title("👩‍🏫 Zoe - Your Personal AI Tutor")
+# --- Streamlit App UI ---
+st.set_page_config(page_title="Zoe - AI Tutor", page_icon="📘")
+st.title("🧠 Zoe - Your AI Learning Assistant")
+st.markdown("""
+Zoe helps explain technical topics like a kind and knowledgeable tutor. Ask anything about ML, AI, stats, or coding!
+""")
 
-st.markdown("Ask me anything about Machine Learning, Math, or Science!")
-
-# User input
-user_question = st.text_input("What would you like to learn?", "")
+user_question = st.text_input("What would you like Zoe to explain?", placeholder="E.g., What is linear regression?")
 
 if user_question:
-    st.info("Zoe is thinking...")
-    response = query_gpt(user_question)
-    st.success("Here's Zoe's answer:")
-    st.write(response)
+    st.info("💡 Zoe is thinking...")
+    answer = query_gpt_with_fallback(user_question)
+    st.success("✅ Zoe's Answer:")
+    st.write(answer)
 
-    # Show visual aid for certain topics
+    # Optional: Custom visuals for some topics
     if "linear regression" in user_question.lower():
-        show_linear_regression_plot()
-import streamlit as st
+        import matplotlib.pyplot as plt
+        import numpy as np
 
-try:
-    response = query_gpt(user_question)
-    st.write(response.choices[0].message.content)
-except openai.RateLimitError:
-    st.warning("Rate limit exceeded. Please wait a moment and try again.")
+        X = np.linspace(0, 10, 50)
+        y = 2.5 * X + 1.0 + np.random.randn(50)
+
+        fig, ax = plt.subplots()
+        ax.scatter(X, y, label='Data')
+        ax.plot(X, 2.5 * X + 1.0, color='red', label='Regression Line')
+        ax.set_title("Linear Regression Example")
+        ax.legend()
+        st.pyplot(fig)
